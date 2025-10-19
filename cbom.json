@@ -1,0 +1,41 @@
+{
+  "cbom": {
+    "project": "Secure Document Vault",
+    "version": "1.0",
+    "date": "2025-10-19",
+    "assets": [
+      {
+        "id": "certificates",
+        "algorithm": "X.509 RSA",
+        "keySize": 2048,
+        "library": "OpenSSL",
+        "purpose": "Transport layer encryption"
+      },
+      {
+        "id": "aes",
+        "algorithm": "AES-256-GCM",
+        "keySize": 256,
+        "library": "Node.js crypto",
+        "purpose": "File encryption"
+      },
+      {
+        "id": "argon2",
+        "algorithm": "Argon2id",
+        "library": "argon2 npm",
+        "purpose": "Password hashing"
+      },
+      {
+        "id": "jwt",
+        "algorithm": "HS256 (HMAC-SHA256)",
+        "library": "jsonwebtoken",
+        "purpose": "Session authentication"
+      },
+      {
+        "id": "sha512",
+        "algorithm": "SHA-512",
+        "library": "Node.js crypto",
+        "purpose": "File integrity hashing"
+      }
+    ]
+  }
+}

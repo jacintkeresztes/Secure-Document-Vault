@@ -1,0 +1,135 @@
+version: '3.8'
+
+services:
+  # Frontend Service
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: vault-frontend
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      - ./certs:/etc/ssl/certs:ro
+      - ./frontend/public:/usr/share/nginx/html:ro
+    environment:
+      - BACKEND_URL=https://backend:3000
+    networks:
+      - vault-network
+    depends_on:
+      - backend
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "https://localhost"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Backend Service
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: vault-backend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./certs:/etc/ssl/certs:ro
+      - upload-data:/app/uploads
+    environment:
+      # Database Configuration
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_NAME=vault_db
+      - DB_USER=vault_user
+      - DB_PASSWORD=${DB_PASSWORD}
+      
+      # Cryptographic Secrets (load from .env file)
+      - KEK_SECRET=${KEK_SECRET}
+      - JWT_SECRET=${JWT_SECRET}
+      
+      # TLS Configuration
+      - TLS_CERT_PATH=/etc/ssl/certs/server.crt
+      - TLS_KEY_PATH=/etc/ssl/certs/server.key
+      
+      # Twilio Configuration (optional)
+      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
+      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
+      - TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER}
+      
+      # Node Environment
+      - NODE_ENV=production
+      - PORT=3000
+    networks:
+      - vault-network
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "https://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # MySQL Database Service
+  mysql:
+    image: mysql:8.0
+    container_name: vault-mysql
+    ports:
+      - "3306:3306"  # Remove in production (internal only)
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./backend/db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    environment:
+      - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD}
+      - MYSQL_DATABASE=vault_db
+      - MYSQL_USER=vault_user
+      - MYSQL_PASSWORD=${DB_PASSWORD}
+      
+      # MySQL 8.0 Performance Tuning
+      - MYSQL_MAX_CONNECTIONS=200
+      - MYSQL_INNODB_BUFFER_POOL_SIZE=256M
+    networks:
+      - vault-network
+    restart: unless-stopped
+    command: >
+      --default-authentication-plugin=mysql_native_password
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --require_secure_transport=OFF
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Optional: Adminer for database management (remove in production)
+  adminer:
+    image: adminer:latest
+    container_name: vault-adminer
+    ports:
+      - "8080:8080"
+    environment:
+      - ADMINER_DEFAULT_SERVER=mysql
+    networks:
+      - vault-network
+    depends_on:
+      - mysql
+    restart: unless-stopped
+    profiles:
+      - dev
+
+networks:
+  vault-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  mysql-data:
+    driver: local
+  upload-data:
+    driver: local

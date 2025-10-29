@@ -4,23 +4,43 @@ This project is about a Secure Document Vault. The user accesses the web applica
 
 # Technologies
 ## Frontend
-- Simple client-side rendering, no fancy animations, simple, but usable bootstrap site
+- Lightweight client-side rendering without fancy animations.
 - HTML, CSS, JS, BootStrap
+
 ## Backend
-- Node.JS Runtime with TypeScript
-- Express REST API for web framework
+- Async I/O ideal for file operations. Typescript adds extra type safety. Express is a node.js web framework
+- Node.js with Typescript, Express.js
+
 ## Third-Party
 - Twilio for email, sms notification
+
 ## Database
 - MySQL 8
-All ends will run in docker containers
+
+## Container architecture
+┌─────────────────────────────────────────┐
+│         Docker Compose Network          │
+├─────────────────────────────────────────┤
+│                                         │
+│  ┌──────────┐  ┌──────────┐  ┌───────┐  │
+│  │ Frontend │  │ Backend  │  │ MySQL │  │
+│  │          │  │          │  │       │  │
+│  │ Port 443 │  │ Port 3000│  │ 3306  │  │
+│  └──────────┘  └──────────┘  └───────┘  │
+│        │              │           │     │
+│        └──────TLS─────┴───────────┘     │
+│                                         │
+└─────────────────────────────────────────┘
+         │
+         └─────> External: Twilio API
+
 ## Cryptography
-- TLS 1.3
-- AES-256-GCM for file encryption
-- npm Argon2id library for password storage
+- TLS 1.3: encryption of HTTP traffic
+- AES-256-GCM for file encryption, data at rest
+- Argon2id library for hashing passwords
 - JWT with HMAC-SHA256 for authenticated sessions (npm jsonwebtoken)
 - npm crypto for general hashing and random key/IV generation
-- *Post-Quantum:* ML-KEM for hybrid key encapsulation in future
+- *Post-Quantum:* ML-KEM for key encapsulation in future
 
 ## Hosting
 - Containerized with Docker Compose
@@ -28,8 +48,9 @@ All ends will run in docker containers
 - Hosted possibly on DigitalOcean Droplet or self host
 
 ## Domain
-- vault.local for local hosting
-- possibly more production ready domain in case of cloud hosting
+- Primary domain: vault.local
+- Frontend: https://vault.local:443
+- Backend api: https://api.vault.local:3000
 
 ## Certificates
 - Self-signed with OpenSSL
@@ -40,11 +61,139 @@ All ends will run in docker containers
 - File download
 
 # Data flows
+## User registration
+Client                  Backend                 Database
+  |                        |                        |
+  |--POST /api/register--->|                        |
+  | {email, password}      |                        |
+  |                        |                        |
+  |                        |--Hash password-------->|
+  |                        |  Argon2id(password,    |
+  |                        |  random_salt)          |
+  |                        |                        |
+  |                        |--Store user----------->|
+  |                        |  {email, hash, salt}   |
+  |                        |                        |
+  |<---201 Created---------|                        |
+  |                        |                        |
 ## Login/Auth
-Client -> POST /api/login -> Backend asks DB, validates -> returns JWT token
+Client                  Backend                 Database
+  |                        |                        |
+  |--POST /api/login------>|                        |
+  | {email, password}      |                        |
+  |                        |                        |
+  |                        |--Retrieve user-------->|
+  |                        |<--{email,hash,salt}----|
+  |                        |                        |
+  |                        |--Verify password-------|
+  |                        |  Argon2id.verify()     |
+  |                        |                        |
+  |                        |--Generate JWT----------|
+  |                        |  sign({user_id, email},|
+  |                        |       JWT_SECRET,      |
+  |                        |       {expiresIn:24h}) |
+  |                        |                        |
+  |<---200 OK--------------|                        |
+  | {token: "..."}         |                        |
+  |                        |                        |
 ## File upload
-Client -> POST /api/upload (file + JWT) -> Backend encrypts with AES-GCM -> ciphertext + metadata stored in DB -> returns confirmation/error message
+Client                  Backend                 Database
+  |                        |                        |
+  |--POST /api/upload----->|                        |
+  | Authorization: Bearer  |                        |
+  | Content-Type: multipart|                        |
+  | File: document.pdf     |                        |
+  |                        |                        |
+  |                        |--Verify JWT----------->|
+  |                        |  HMAC.verify(token)    |
+  |                        |                        |
+  |                        |--Hash original file----|
+  |                        |  SHA512(file_data)     |
+  |                        |  => file_hash          |
+  |                        |                        |
+  |                        |--Generate DEK----------|
+  |                        |  crypto.randomBytes(32)|
+  |                        |  => DEK                |
+  |                        |                        |
+  |                        |--Generate IV-----------|
+  |                        |  crypto.randomBytes(12)|
+  |                        |  => IV                 |
+  |                        |                        |
+  |                        |--Encrypt file----------|
+  |                        |  AES-256-GCM(          |
+  |                        |    key: DEK,           |
+  |                        |    iv: IV,             |
+  |                        |    data: file_data     |
+  |                        |  )                     |
+  |                        |  => ciphertext + tag   |
+  |                        |                        |
+  |                        |--Wrap DEK--------------|
+  |                        |  AES-256-GCM(          |
+  |                        |    key: KEK,           |
+  |                        |    iv: kek_iv,         |
+  |                        |    data: DEK           |
+  |                        |  )                     |
+  |                        |  => encrypted_DEK      |
+  |                        |                        |
+  |                        |--Store record--------->|
+  |                        |  INSERT INTO files:    |
+  |                        |  {                     |
+  |                        |    user_id,            |
+  |                        |    filename,           |
+  |                        |    ciphertext,         |
+  |                        |    encrypted_dek,      |
+  |                        |    iv,                 |
+  |                        |    auth_tag,           |
+  |                        |    file_hash,          |
+  |                        |    upload_timestamp    |
+  |                        |  }                     |
+  |                        |<-----------------------|
+  |                        |                        |
+  |                        |--Notify via Twilio---->|
+  |                        |  POST api.twilio.com   |
+  |                        |  "File uploaded"       |
+  |                        |                        |
+  |<---200 OK--------------|                        |
+  | {file_id, message}     |                        |
+  |                        |                        |
 ## File download
-Client -> GET /api/download/@{id} + JWT -> Backend verifies with JWT -> decrypts file -> sends back decrypted file
-## SMS
-Backend -> Twilio API POST -> Send sms to user after upload/download
+Client                  Backend                 Database
+  |                        |                        |
+  |--GET /api/file/123---->|                        |
+  | Authorization: Bearer  |                        |
+  |                        |                        |
+  |                        |--Verify JWT----------->|
+  |                        |                        |
+  |                        |--Authorization check---|
+  |                        |  Verify user_id owns   |
+  |                        |  file_id               |
+  |                        |                        |
+  |                        |--Retrieve record------>|
+  |                        |<--{encrypted file data}|
+  |                        |                        |
+  |                        |--Unwrap DEK------------|
+  |                        |  AES-256-GCM.decrypt(  |
+  |                        |    key: KEK,           |
+  |                        |    iv: kek_iv,         |
+  |                        |    data: encrypted_dek |
+  |                        |  )                     |
+  |                        |  => DEK                |
+  |                        |                        |
+  |                        |--Decrypt file----------|
+  |                        |  AES-256-GCM.decrypt(  |
+  |                        |    key: DEK,           |
+  |                        |    iv: IV,             |
+  |                        |    data: ciphertext,   |
+  |                        |    tag: auth_tag       |
+  |                        |  )                     |
+  |                        |  => plaintext_file     |
+  |                        |                        |
+  |                        |--Verify integrity------|
+  |                        |  SHA512(plaintext_file)|
+  |                        |  compare with file_hash|
+  |                        |                        |
+  |<---200 OK--------------|                        |
+  | Content-Type: app/pdf  |                        |
+  | Content-Disposition    |                        |
+  | {decrypted file data}  |                        |
+  |                        |                        |

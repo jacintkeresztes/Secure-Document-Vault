@@ -1,41 +1,112 @@
 {
-  "cbom": {
-    "project": "Secure Document Vault",
+  "cbom-version": "1.0",
+  "project": {
+    "name": "Secure Document Vault",
     "version": "1.0",
-    "date": "2025-10-19",
-    "assets": [
-      {
-        "id": "certificates",
-        "algorithm": "X.509 RSA",
-        "keySize": 2048,
-        "library": "OpenSSL",
-        "purpose": "Transport layer encryption"
+    "date": "2025-10-19"
+  },
+  "components": [
+    {
+      "id": "tls-transport",
+      "type": "protocol",
+      "algorithm": "TLS 1.3",
+      "implementation": "Node.js built-in (OpenSSL)",
+      "cipher-suites": ["TLS_AES_256_GCM_SHA384", "TLS_CHACHA20_POLY1305_SHA256"],
+      "purpose": "Secure data in transit",
+      "key-size": 256,
+      "dependencies": ["certificates"]
+    },
+    {
+      "id": "certificates",
+      "type": "certificate",
+      "algorithm": "X.509 v3 with RSA",
+      "key-size": 2048,
+      "signature-algorithm": "SHA-256 with RSA",
+      "library": "OpenSSL 3.0+",
+      "purpose": "TLS server authentication",
+      "validity-period": "1 year",
+      "key-storage": "Filesystem (PEM format)",
+      "future-plan": "Migrate to RSA-4096 or ECDSA P-384 for post-2030"
+    },
+    {
+      "id": "file-encryption",
+      "type": "symmetric-encryption",
+      "algorithm": "AES-256-GCM",
+      "key-size": 256,
+      "iv-size": 96,
+      "tag-size": 128,
+      "library": "Node.js crypto module",
+      "npm-package": "built-in",
+      "purpose": "Encrypt files at rest in database",
+      "key-derivation": "Random generation via crypto.randomBytes(32)",
+      "key-storage": "Database (encrypted with KEK)",
+      "dependencies": ["key-encryption-key"]
+    },
+    {
+      "id": "key-encryption-key",
+      "type": "symmetric-encryption",
+      "algorithm": "AES-256-GCM",
+      "purpose": "Encrypt data encryption keys",
+      "key-storage": "Environment variable / HSM in production",
+      "rotation-policy": "Manual (future: automated quarterly)"
+    },
+    {
+      "id": "password-hashing",
+      "type": "password-hashing",
+      "algorithm": "Argon2id",
+      "library": "argon2",
+      "npm-package": "argon2@^0.31.0",
+      "parameters": {
+        "memory-cost": 65536,
+        "time-cost": 3,
+        "parallelism": 4
       },
+      "purpose": "Hash user passwords",
+      "salt": "Random per-password (16 bytes)"
+    },
+    {
+      "id": "session-tokens",
+      "type": "mac",
+      "algorithm": "HMAC-SHA256 (HS256)",
+      "library": "jsonwebtoken",
+      "npm-package": "jsonwebtoken@^9.0.0",
+      "purpose": "JWT authentication tokens",
+      "key-size": 256,
+      "key-storage": "Environment variable",
+      "token-expiry": "24 hours"
+    },
+    {
+      "id": "file-integrity",
+      "type": "hash",
+      "algorithm": "SHA-512",
+      "library": "Node.js crypto module",
+      "purpose": "Verify file integrity",
+      "dependencies": []
+    },
+    {
+      "id": "random-generation",
+      "type": "random",
+      "algorithm": "CSPRNG",
+      "library": "crypto.randomBytes (Node.js)",
+      "purpose": "Generate cryptographic keys and IVs"
+    }
+  ],
+  "post-quantum-readiness": {
+    "status": "planned",
+    "target-date": "2027",
+    "algorithms": [
       {
-        "id": "aes",
-        "algorithm": "AES-256-GCM",
-        "keySize": 256,
-        "library": "Node.js crypto",
-        "purpose": "File encryption"
-      },
-      {
-        "id": "argon2",
-        "algorithm": "Argon2id",
-        "library": "argon2 npm",
-        "purpose": "Password hashing"
-      },
-      {
-        "id": "jwt",
-        "algorithm": "HS256 (HMAC-SHA256)",
-        "library": "jsonwebtoken",
-        "purpose": "Session authentication"
-      },
-      {
-        "id": "sha512",
-        "algorithm": "SHA-512",
-        "library": "Node.js crypto",
-        "purpose": "File integrity hashing"
+        "algorithm": "ML-KEM-768",
+        "purpose": "Hybrid key encapsulation for TLS",
+        "library": "To be determined (liboqs integration)"
       }
+    ]
+  },
+  "hardware-security": {
+    "current": "None (software-only)",
+    "recommended": [
+      "TPM 2.0 for key storage in production",
+      "HSM for KEK protection in production"
     ]
   }
 }

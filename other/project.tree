@@ -1,0 +1,28 @@
+Secure-Document-Vault
+ ┣ backend
+ ┃ ┣ src
+ ┃ ┃ ┣ models
+ ┃ ┃ ┣ routes
+ ┃ ┃ ┣ services
+ ┃ ┃ ┗ app.ts
+ ┃ ┣ .env
+ ┃ ┣ Dockerfile
+ ┃ ┣ package-lock.json
+ ┃ ┗ package.json
+ ┣ frontend
+ ┃ ┣ public
+ ┃ ┃ ┣ css
+ ┃ ┃ ┗ js
+ ┃ ┣ views
+ ┃ ┃ ┣ index.html
+ ┃ ┃ ┣ login.html
+ ┃ ┃ ┣ logout.html
+ ┃ ┃ ┗ upload.html
+ ┃ ┣ Dockerfile
+ ┃ ┣ app.ts
+ ┃ ┣ package-lock.json
+ ┃ ┗ package.json
+ ┣ .dockerignore
+ ┣ .gitignore
+ ┣ README.md
+ ┣ cbom.json

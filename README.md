@@ -18,6 +18,7 @@ This project is about a Secure Document Vault. The user accesses the web applica
 - MySQL 8
 
 ## Container architecture
+```text
 ┌─────────────────────────────────────────┐
 │         Docker Compose Network          │
 ├─────────────────────────────────────────┤
@@ -33,7 +34,7 @@ This project is about a Secure Document Vault. The user accesses the web applica
 └─────────────────────────────────────────┘
          │
          └─────> External: Twilio API
-
+```
 ## Cryptography
 - TLS 1.3: encryption of HTTP traffic
 - AES-256-GCM for file encryption, data at rest
@@ -62,6 +63,7 @@ This project is about a Secure Document Vault. The user accesses the web applica
 
 # Data flows
 ## User registration
+```text
 Client                  Backend                 Database
   |                        |                        |
   |--POST /api/register--->|                        |
@@ -76,7 +78,9 @@ Client                  Backend                 Database
   |                        |                        |
   |<---201 Created---------|                        |
   |                        |                        |
+```
 ## Login/Auth
+```text
 Client                  Backend                 Database
   |                        |                        |
   |--POST /api/login------>|                        |
@@ -96,7 +100,9 @@ Client                  Backend                 Database
   |<---200 OK--------------|                        |
   | {token: "..."}         |                        |
   |                        |                        |
+```
 ## File upload
+```text
 Client                  Backend                 Database
   |                        |                        |
   |--POST /api/upload----->|                        |
@@ -156,7 +162,9 @@ Client                  Backend                 Database
   |<---200 OK--------------|                        |
   | {file_id, message}     |                        |
   |                        |                        |
+```
 ## File download
+```text
 Client                  Backend                 Database
   |                        |                        |
   |--GET /api/file/123---->|                        |
@@ -197,3 +205,35 @@ Client                  Backend                 Database
   | Content-Disposition    |                        |
   | {decrypted file data}  |                        |
   |                        |                        |
+```
+# File tree
+```text
+Secure-Document-Vault
+ ┣ backend
+ ┃ ┣ src
+ ┃ ┃ ┣ models
+ ┃ ┃ ┣ routes
+ ┃ ┃ ┣ services
+ ┃ ┃ ┗ app.ts
+ ┃ ┣ .env
+ ┃ ┣ Dockerfile
+ ┃ ┣ package-lock.json
+ ┃ ┗ package.json
+ ┣ frontend
+ ┃ ┣ public
+ ┃ ┃ ┣ css
+ ┃ ┃ ┗ js
+ ┃ ┣ views
+ ┃ ┃ ┣ index.html
+ ┃ ┃ ┣ login.html
+ ┃ ┃ ┣ logout.html
+ ┃ ┃ ┗ upload.html
+ ┃ ┣ Dockerfile
+ ┃ ┣ app.ts
+ ┃ ┣ package-lock.json
+ ┃ ┗ package.json
+ ┣ .dockerignore
+ ┣ .gitignore
+ ┣ README.md
+ ┣ cbom.json
+```

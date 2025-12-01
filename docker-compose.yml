@@ -46,17 +46,12 @@ services:
       - DB_PASSWORD=${DB_PASSWORD}
       
       # Cryptographic Secrets (load from .env file)
-      - KEK_SECRET=${KEK_SECRET}
-      - JWT_SECRET=${JWT_SECRET}
+      # - KEK_SECRET=${KEK_SECRET}
+      # - JWT_SECRET=${JWT_SECRET}
       
       # TLS Configuration
       - TLS_CERT_PATH=/etc/ssl/certs/server.crt
       - TLS_KEY_PATH=/etc/ssl/certs/server.key
-      
-      # Twilio Configuration (optional)
-      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
-      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
-      - TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER}
       
       # Node Environment
       - NODE_ENV=production

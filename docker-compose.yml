@@ -12,13 +12,11 @@ services:
       - "80:80"
     volumes:
       - ./certs:/etc/ssl/certs:ro
-      - ./frontend/public:/usr/share/nginx/html:ro
+      - ./frontend:/usr/share/nginx/html:ro
     environment:
       - BACKEND_URL=https://backend:3000
     networks:
       - vault-network
-    depends_on:
-      - backend
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "https://localhost"]
@@ -113,8 +111,6 @@ services:
     depends_on:
       - mysql
     restart: unless-stopped
-    profiles:
-      - dev
 
 networks:
   vault-network:

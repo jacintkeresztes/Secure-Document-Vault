@@ -1,7 +1,7 @@
 import { createPool } from 'mysql2/promise'
 
 const dbConfig = {
-    host: process.env.DB_HOST || 'localhost',
+    host: process.env.DB_HOST || 'mysql',
     port: parseInt(process.env.DB_PORT || '3306'),
     user: process.env.DB_USER || 'vault_user',
     password: process.env.DB_PASSWORD || '',

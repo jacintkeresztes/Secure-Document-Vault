@@ -1,41 +1,53 @@
-import express from "express";
-import path from "path";
-import cors from 'cors';
-import { testConnection } from "./src/db/connections.js";
+import express from "express"
+import cors from 'cors'
+import multer from 'multer'
+import { testConnection } from "./src/db/connections.js"
+import { handleRegister, handleLogin } from './src/handlers/authHandlers.js'
+import { handleListFiles, handleFileDownload, handleDeleteFile, handleFileUpload } from "./src/handlers/fileHandlers.js"
 
-const app = express();
-const port = 3000;
+const app = express()
+const port = 3000
+const upload = multer({ dest:'uploads/temp' })
 
-app.use(express.json());
+app.use(express.json())
 app.use(cors())
 app.use('/public', express.static('public'))
 
-testConnection();
+testConnection()
 
 app.route('/api/login')
-    .post((req, res) => {       
-        // handleLogin(req); 
+    .post((req, res) => {
+        handleLogin(req, res)
     })
 
 app.route('/api/register')
     .post((req, res) => {
-        // registerUser(req);
+        handleRegister(req, res)
     })
 
 app.route('/api/upload')
-    .post((req, res) => {
-        // handleFile(req);
+    .post(upload.single('file'), (req, res) => {
+        // handleSessionAuth(req, res, next)
+        handleFileUpload(req, res)
+    })
+
+app.route('/api/files')
+    .get((req, res) => {
+        // handleSessionAuth(req, res, next)
+        handleListFiles(req, res)
     })
 
 app.route('/api/files/:id')
     .get((req, res) => {
-        // getFile(req);
+        // handleSessionAuth(req, res, next)
+        handleFileDownload(req, res)
     })
 
     .delete((req, res) => {
-        // deleteFile(req);
+        // handleSessionAuth(req, res, next)
+        handleDeleteFile(req, res)
     })
 
 app.listen(port, () => {
-    console.log('Listening on port 3000');
+    console.log('🚀 Server running on port 3000')
 })

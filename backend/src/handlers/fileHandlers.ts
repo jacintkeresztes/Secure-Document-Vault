@@ -1,8 +1,8 @@
 import { pool } from '../db/connections.js'
 import { type Request, type Response } from 'express'
-import multer from 'multer'
 import crypto from 'crypto'
 import fs from 'fs/promises'
+import { deleteFile } from '../utils/fileUtils.js'
 
 export async function handleFileUpload(req: Request, res: Response) {
     try {
@@ -21,7 +21,13 @@ export async function handleFileUpload(req: Request, res: Response) {
             })
         }
 
-        const userId = 1
+        const userId = req.user?.userId
+        if (!userId) {
+            return res.status(401).json({
+                success: false,
+                message: 'Unauthorized'
+            })
+        }
         const originalName = req.file.originalname
         const fileExtension = originalName.substring(originalName.lastIndexOf('.'))
         const fileSize = req.file.size
@@ -94,7 +100,13 @@ export async function handleFileUpload(req: Request, res: Response) {
 
 export async function handleFileDownload(req: Request, res: Response) {
     const fileId = req.params.id
-    const userId = 1
+    const userId = req.user?.userId
+    if (!userId) {
+        return res.status(401).json({
+            success: false,
+            message: 'Unauthorized'
+        })
+    }
     let results: any
     try {
         [results] = await pool.execute(
@@ -134,7 +146,13 @@ export async function handleFileDownload(req: Request, res: Response) {
 
 export async function handleDeleteFile(req: Request, res: Response) {
     const fileId = req.params.id
-    const userId = 1
+    const userId = req.user?.userId
+    if (!userId) {
+        return res.status(401).json({
+            success: false,
+            message: 'Unauthorized'
+        })
+    }
     let results: any
     try {
         [results] = await pool.execute(
@@ -181,7 +199,13 @@ export async function handleDeleteFile(req: Request, res: Response) {
 }
 
 export async function handleListFiles(req: Request, res: Response) {
-    const userId = 1
+    const userId = req.user?.userId
+    if (!userId) {
+        return res.status(401).json({
+            success: false,
+            message: 'Unauthorized'
+        })
+    }
     let results: any
     try {
         [results] = await pool.execute(
@@ -202,9 +226,9 @@ export async function handleListFiles(req: Request, res: Response) {
             success: true,
             files: files.map(f => ({
                 id: f.id,
-                filename: f.filename,
+                original_name: f.filename,
                 size: f.file_size,
-                uploadDate: f.upload_date
+                upload_date: f.upload_date
             }))
         })
     } catch (error) {
@@ -213,13 +237,5 @@ export async function handleListFiles(req: Request, res: Response) {
             success: false,
             message: 'Failed to list files'
         })
-    }
-}
-
-async function deleteFile(filePath: string) {
-    try {
-        await fs.rm(filePath)
-    } catch (error) {
-        console.error(error)
     }
 }

@@ -45,7 +45,7 @@ services:
       
       # Cryptographic Secrets (load from .env file)
       # - KEK_SECRET=${KEK_SECRET}
-      # - JWT_SECRET=${JWT_SECRET}
+      - JWT_SECRET=${JWT_SECRET}
       
       # TLS Configuration
       - TLS_CERT_PATH=/etc/ssl/certs/server.crt

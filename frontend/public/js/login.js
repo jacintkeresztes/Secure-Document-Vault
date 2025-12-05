@@ -12,7 +12,6 @@ loginForm.addEventListener('submit', async (e) => {
     const email = document.getElementById('email').value;
     const password = document.getElementById('password').value;
 
-    // Clear previous feedback
     if (feedback) feedback.innerHTML = '';
 
     try {
@@ -27,7 +26,6 @@ loginForm.addEventListener('submit', async (e) => {
         const data = await response.json();
 
         if (response.ok) {
-            // Success - Green alert
             feedback.innerHTML = `
                 <div class="alert alert-success alert-dismissible fade show" role="alert">
                     <strong>✓ Success!</strong> ${data.message || 'Login successful!'}
@@ -35,17 +33,12 @@ loginForm.addEventListener('submit', async (e) => {
                 </div>
             `;
 
-            // Store token if provided (for future JWT implementation)
-            if (data.token) {
-                localStorage.setItem('token', data.token);
-            }
+            if (data.token) localStorage.setItem('token', data.token)
 
-            // Redirect to home after 1 second
             setTimeout(() => {
                 window.location.href = '/';
             }, 1000);
         } else {
-            // Error - Red alert
             feedback.innerHTML = `
                 <div class="alert alert-danger alert-dismissible fade show" role="alert">
                     <strong>✗ Error ${response.status}:</strong> ${data.message || 'Login failed - Invalid credentials'}

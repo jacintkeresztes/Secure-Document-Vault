@@ -3,30 +3,95 @@
   "project": {
     "name": "Secure Document Vault",
     "version": "1.0",
-    "date": "2025-10-19"
+    "date": "2025-12-08",
+    "description": "Full-stack secure document storage with encryption at rest and in transit"
   },
   "components": [
     {
-      "id": "tls-transport",
+      "id": "tls-frontend",
       "type": "protocol",
-      "algorithm": "TLS 1.3",
-      "implementation": "Node.js built-in (OpenSSL)",
-      "cipher-suites": ["TLS_AES_256_GCM_SHA384", "TLS_CHACHA20_POLY1305_SHA256"],
-      "purpose": "Secure data in transit",
-      "key-size": 256,
-      "dependencies": ["certificates"]
+      "algorithm": "TLS 1.2/1.3",
+      "implementation": "nginx (OpenSSL)",
+      "cipher-suites": [
+        "TLS_AES_256_GCM_SHA384",
+        "TLS_CHACHA20_POLY1305_SHA256",
+        "TLS_AES_128_GCM_SHA256"
+      ],
+      "purpose": "Secure HTTPS communication for frontend",
+      "key-size": 2048,
+      "nist-category": "Category 1 (2023-2030)",
+      "nist-justification": "NIST SP 800-57 Part 1 Rev. 5 approves 2048-bit RSA for security strength of 112 bits until 2030",
+      "dependencies": ["frontend-certificates"]
     },
     {
-      "id": "certificates",
+      "id": "tls-backend",
+      "type": "protocol",
+      "algorithm": "TLS 1.2/1.3",
+      "implementation": "Node.js HTTPS (OpenSSL)",
+      "cipher-suites": [
+        "TLS_AES_256_GCM_SHA384",
+        "TLS_CHACHA20_POLY1305_SHA256"
+      ],
+      "purpose": "Secure HTTPS API communication",
+      "key-size": 2048,
+      "nist-category": "Category 1 (2023-2030)",
+      "nist-justification": "TLS 1.3 with AES-256-GCM provides 128-bit security strength per NIST SP 800-52 Rev. 2",
+      "dependencies": ["backend-certificates"]
+    },
+    {
+      "id": "tls-database",
+      "type": "protocol",
+      "algorithm": "TLS 1.2/1.3",
+      "implementation": "MySQL 8.0 (OpenSSL)",
+      "purpose": "Secure database connections",
+      "key-size": 2048,
+      "nist-category": "Category 1 (2023-2030)",
+      "nist-justification": "Required secure transport prevents plaintext credential and data exposure",
+      "configuration": "--require_secure_transport=ON",
+      "dependencies": ["database-certificates"]
+    },
+    {
+      "id": "frontend-certificates",
       "type": "certificate",
       "algorithm": "X.509 v3 with RSA",
       "key-size": 2048,
-      "signature-algorithm": "SHA-256 with RSA",
-      "library": "OpenSSL 3.0+",
-      "purpose": "TLS server authentication",
-      "validity-period": "1 year",
-      "key-storage": "Filesystem (PEM format)",
-      "future-plan": "Migrate to RSA-4096 or ECDSA P-384 for post-2030"
+      "signature-algorithm": "SHA-256 with RSA Encryption",
+      "library": "OpenSSL 3.x",
+      "purpose": "TLS server authentication for frontend",
+      "validity-period": "365 days",
+      "key-storage": "Filesystem (PEM format, read-only)",
+      "nist-category": "Category 1 (2023-2030)",
+      "nist-justification": "RSA-2048 provides 112-bit security strength, sufficient until 2030 per NIST SP 800-57 Part 1 Table 2",
+      "renewal-policy": "Manual renewal before expiry",
+      "future-plan": "Migrate to RSA-3072 or ECDSA P-384 for post-2030 compliance"
+    },
+    {
+      "id": "backend-certificates",
+      "type": "certificate",
+      "algorithm": "X.509 v3 with RSA",
+      "key-size": 2048,
+      "signature-algorithm": "SHA-256 with RSA Encryption",
+      "library": "OpenSSL 3.x",
+      "purpose": "TLS server authentication for backend API",
+      "validity-period": "365 days",
+      "key-storage": "Filesystem (PEM format, read-only)",
+      "nist-category": "Category 1 (2023-2030)",
+      "nist-justification": "SHA-256 provides 128-bit collision resistance per NIST FIPS 180-4",
+      "renewal-policy": "Manual renewal before expiry"
+    },
+    {
+      "id": "database-certificates",
+      "type": "certificate",
+      "algorithm": "X.509 v3 with RSA",
+      "key-size": 2048,
+      "signature-algorithm": "SHA-256 with RSA Encryption",
+      "library": "OpenSSL 3.x",
+      "purpose": "TLS server and client authentication for MySQL",
+      "validity-period": "365 days",
+      "key-storage": "Filesystem (PEM format, read-only)",
+      "certificates": ["CA certificate", "Server certificate", "Client certificate"],
+      "nist-category": "Category 1 (2023-2030)",
+      "nist-justification": "Client certificate authentication prevents unauthorized database access"
     },
     {
       "id": "file-encryption",
@@ -35,20 +100,28 @@
       "key-size": 256,
       "iv-size": 96,
       "tag-size": 128,
-      "library": "Node.js crypto module",
+      "library": "Node.js crypto module (OpenSSL)",
       "npm-package": "built-in",
       "purpose": "Encrypt files at rest in database",
       "key-derivation": "Random generation via crypto.randomBytes(32)",
       "key-storage": "Database (encrypted with KEK)",
-      "dependencies": ["key-encryption-key"]
+      "nist-category": "Category 1",
+      "nist-justification": "AES-256 provides 128-bit security strength per NIST SP 800-57 Part 1. GCM mode provides authenticated encryption per NIST SP 800-38D",
+      "dependencies": ["key-encryption-key", "random-generation"]
     },
     {
       "id": "key-encryption-key",
-      "type": "symmetric-encryption",
-      "algorithm": "AES-256-GCM",
-      "purpose": "Encrypt data encryption keys",
-      "key-storage": "Environment variable / HSM in production",
-      "rotation-policy": "Manual (future: automated quarterly)"
+      "type": "key-derivation",
+      "algorithm": "SHA-256",
+      "key-size": 256,
+      "purpose": "Encrypt Data Encryption Keys (DEK)",
+      "key-storage": "Never stored (derived on-demand from password hash)",
+      "key-derivation": "SHA-256(Argon2id password hash)",
+      "rotation-policy": "Automatic on password change (user-specific)",
+      "nist-category": "Category 1",
+      "nist-justification": "SHA-256 provides 128-bit security strength per NIST FIPS 180-4. Each user has unique KEK derived from their password. Follows key hierarchy best practices",
+      "security-note": "Password change breaks file access without DEK re-encryption (not implemented)",
+      "limitation": "Password compromise exposes all user files"
     },
     {
       "id": "password-hashing",
@@ -59,54 +132,143 @@
       "parameters": {
         "memory-cost": 65536,
         "time-cost": 3,
-        "parallelism": 4
+        "parallelism": 4,
+        "hash-length": 32
       },
-      "purpose": "Hash user passwords",
-      "salt": "Random per-password (16 bytes)"
+      "purpose": "Hash user passwords for authentication",
+      "salt": "Random per-password (16 bytes via argon2 library)",
+      "nist-category": "N/A (OWASP recommended)",
+      "justification": "Argon2id is winner of Password Hashing Competition and recommended by OWASP. Memory-hard algorithm resists GPU/ASIC attacks",
+      "dependencies": ["random-generation"]
     },
     {
-      "id": "session-tokens",
+      "id": "jwt-access-token",
       "type": "mac",
-      "algorithm": "HMAC-SHA256 (HS256)",
+      "algorithm": "HMAC-SHA512 (HS512)",
       "library": "jsonwebtoken",
       "npm-package": "jsonwebtoken@^9.0.0",
-      "purpose": "JWT authentication tokens",
-      "key-size": 256,
-      "key-storage": "Environment variable",
-      "token-expiry": "24 hours"
+      "purpose": "Short-lived JWT access tokens for API authentication",
+      "key-size": 512,
+      "key-storage": "Environment variable (JWT_SECRET)",
+      "token-expiry": "15 minutes",
+      "nist-category": "Category 1",
+      "nist-justification": "HMAC-SHA512 provides 256-bit security strength per NIST FIPS 198-1. Short expiry limits exposure window",
+      "security-note": "Stateless tokens, cannot be revoked before expiry"
+    },
+    {
+      "id": "jwt-refresh-token",
+      "type": "mac",
+      "algorithm": "HMAC-SHA512 (HS512)",
+      "library": "jsonwebtoken",
+      "npm-package": "jsonwebtoken@^9.0.0",
+      "purpose": "Long-lived JWT refresh tokens for obtaining new access tokens",
+      "key-size": 512,
+      "key-storage": "Environment variable (JWT_SECRET)",
+      "token-expiry": "7 days",
+      "token-storage": "Database (refresh_tokens table)",
+      "revocation": "Server-side revocation via database deletion",
+      "nist-category": "Category 1",
+      "nist-justification": "Database storage enables revocation capability. Longer expiry balanced by revocation mechanism per NIST SP 800-63B",
+      "dependencies": ["database-storage"]
     },
     {
       "id": "file-integrity",
       "type": "hash",
-      "algorithm": "SHA-512",
-      "library": "Node.js crypto module",
-      "purpose": "Verify file integrity",
-      "dependencies": []
+      "algorithm": "SHA-256",
+      "library": "sha256sum (BusyBox/GNU coreutils)",
+      "purpose": "Verify configuration and code file integrity at container startup",
+      "output-size": 256,
+      "nist-category": "Category 1",
+      "nist-justification": "SHA-256 provides 128-bit collision resistance per NIST FIPS 180-4. Detects unauthorized modifications",
+      "implementation": "Checksums generated during build, verified at container startup",
+      "security-note": "Containers fail to start if integrity check fails"
     },
     {
       "id": "random-generation",
       "type": "random",
       "algorithm": "CSPRNG",
       "library": "crypto.randomBytes (Node.js)",
-      "purpose": "Generate cryptographic keys and IVs"
+      "implementation": "OpenSSL RAND_bytes",
+      "purpose": "Generate cryptographic keys, IVs, salts, and tokens",
+      "entropy-source": "OS entropy pool (/dev/urandom on Linux)",
+      "nist-category": "Category 1",
+      "nist-justification": "CSPRNG meets NIST SP 800-90A requirements for random number generation"
     }
   ],
-  "post-quantum-readiness": {
-    "status": "planned",
-    "target-date": "2027",
-    "algorithms": [
-      {
-        "algorithm": "ML-KEM-768",
-        "purpose": "Hybrid key encapsulation for TLS",
-        "library": "To be determined (liboqs integration)"
-      }
+  "key-management": {
+    "certificate-renewal": {
+      "process": "Manual regeneration using OpenSSL",
+      "frequency": "Annually before expiry",
+      "notification": "Manual monitoring of expiry dates",
+      "future-improvement": "Automated renewal with Let's Encrypt or internal CA"
+    },
+    "jwt-secret-rotation": {
+      "current": "Manual rotation",
+      "recommendation": "Rotate quarterly or on suspected compromise",
+      "impact": "All active tokens invalidated on rotation"
+    },
+    "kek-rotation": {
+      "current": "Manual rotation",
+      "process": "Re-encrypt all DEKs with new KEK",
+      "recommendation": "Rotate annually or on suspected compromise"
+    }
+  },
+  "compliance": {
+    "nist-sp-800-57": "All symmetric keys ≥128-bit security strength, asymmetric keys ≥2048-bit RSA",
+    "nist-sp-800-52": "TLS 1.2/1.3 with approved cipher suites",
+    "nist-sp-800-63b": "Password hashing with memory-hard function, multi-factor capability via refresh token revocation",
+    "owasp-asvs": "Level 2 cryptographic controls"
+  },
+  "threat-model": {
+    "protected-against": [
+      "Data interception (TLS for all connections)",
+      "Password compromise (Argon2id memory-hard hashing)",
+      "File theft (AES-256-GCM encryption at rest)",
+      "Token theft with limited exposure (15-minute access token expiry)",
+      "Configuration tampering (SHA-256 integrity verification)",
+      "Unauthorized database access (TLS client certificates, authentication)"
+    ],
+    "limitations": [
+      "Self-signed certificates (no external CA validation)",
+      "KEK stored in environment variable (not HSM)",
+      "No hardware security module (HSM) integration",
+      "Manual key rotation processes"
     ]
   },
+  "post-quantum-readiness": {
+    "status": "Not implemented",
+    "risk-assessment": "Low urgency",
+    "target-date": "2030",
+    "migration-plan": [
+      {
+        "component": "TLS",
+        "algorithm": "ML-KEM-768 (Kyber) hybrid with RSA/ECDSA",
+        "standard": "NIST FIPS 203"
+      },
+      {
+        "component": "Digital signatures",
+        "algorithm": "ML-DSA (Dilithium)",
+        "standard": "NIST FIPS 204"
+      }
+    ],
+    "note": "Symmetric algorithms (AES-256) are quantum-resistant. Asymmetric algorithms (RSA-2048) will require upgrade"
+  },
   "hardware-security": {
-    "current": "None (software-only)",
-    "recommended": [
-      "TPM 2.0 for key storage in production",
-      "HSM for KEK protection in production"
+    "status": "Software-only implementation",
+    "production-recommendations": [
+      "TPM 2.0 for certificate and KEK storage",
+      "HSM (Hardware Security Module) for KEK protection and cryptographic operations",
+      "Secure Boot to ensure integrity verification authenticity"
     ]
+  },
+  "deployment": {
+    "environment": "Docker containers on Linux",
+    "services": [
+      "Frontend: nginx Alpine (HTTPS)",
+      "Backend: Node.js 20 Alpine (HTTPS API)",
+      "Database: MySQL 8.0 (TLS required)"
+    ],
+    "network": "Docker bridge network (isolated)",
+    "volume-encryption": "Not implemented (host filesystem dependent)"
   }
 }

@@ -1,0 +1,88 @@
+@startuml auth
+title Secure File Vault - Authentication Flow (/api/login)
+
+actor User
+participant "Frontend\n(nginx)" as FE
+participant "Backend API\n(Node.js)" as BE
+database "MySQL" as DB
+
+== Login Request ==
+
+User -> FE : HTTPS POST /api/login\n{ email, password }
+FE -> BE : HTTPS POST /api/login\n{ email, password }
+
+BE -> DB : SELECT * FROM users\nWHERE email = ?
+DB --> BE : user record\n(Argon2id passwordHash, userId, ...)
+
+BE -> BE : Verify password\nArgon2id(password, passwordHash)
+
+alt Password valid
+  BE -> BE : Create JWT\nheader.payload.signature\nHMAC-SHA512(secret)
+  BE --> FE : 200 OK\n{ accessToken (JWT), refreshToken? }
+  FE --> User : Store token\n(localStorage)\nContinue as authenticated
+else Invalid password
+  BE --> FE : 401 Unauthorized
+  FE --> User : Show error
+end
+
+== Life files ==
+
+User -> FE : list files
+FE -> BE : HTTPS GET /api/files\nAuthorization: Bearer <JWT>
+BE -> BE : Validate JWT signature\n
+BE -> DB : Query user data / files
+DB --> BE : Result
+BE --> FE : JSON response
+FE --> User : Render files list
+
+== Upload file ==
+User -> FE : upload file
+FE -> BE : HTTPS POST /api/upload\nAuthorization: Bearer <JWT>\n{ file data }
+BE -> BE : Validate JWT signature\n
+BE -> BE : Encrypt file\nGenerate DEK, IV, Auth Tag\nEncrypt file with DEK
+BE -> BE : Encrypt DEK with KEK\n(derived from password)
+BE -> DB : Store file metadata\n(userId, filepath, iv, auth_tag, encrypted_dek, dek_iv, dek_auth_tag, file_hash)
+DB -> BE : Acknowledge storage
+BE -> BE : Store encrypted file on disk (/uploads)
+BE --> FE : 200 OK\n
+FE --> User : Show upload success
+
+== Download file ==
+User -> FE : download file
+FE -> BE : HTTPS GET /api/file/:id\nAuthorization: Bearer <JWT>
+BE -> BE : Validate JWT signature\n
+BE -> DB : Query file metadata\n(fileId, userId)
+DB --> BE : file metadata\n(filepath, iv, auth_tag, encrypted_dek, dek_iv, dek_auth_tag)
+BE -> BE : Retrieve encrypted file from disk (/uploads)
+BE -> BE : Decrypt DEK with KEK\n(derived from password)
+BE -> BE : Decrypt file with DEK
+BE --> FE : 200 OK\n{ decrypted file data }
+FE --> User : Trigger file download
+
+== Token Refresh Flow ==
+User -> FE : Token expired (401)\nTrigger automatic refresh
+FE -> BE : HTTPS POST /api/refresh\n{ refreshToken }
+BE -> DB : SELECT * FROM refresh_tokens\nWHERE token = ?\nAND expires_at > NOW()
+DB --> BE : Refresh token record
+BE -> BE : Verify JWT signature\nHMAC-SHA512
+alt Refresh token valid
+  BE -> BE : Generate new access token\nJWT with HS512\n(15 min expiry)
+  BE --> FE : 200 OK\n{ accessToken }
+  FE -> FE : Update stored token\n(localStorage)
+  FE -> BE : Retry original request\nwith new accessToken
+else Invalid or expired token
+  BE --> FE : 401 Unauthorized
+  FE -> FE : Clear all tokens
+  FE --> User : Redirect to login
+end
+
+== Logout Flow ==
+User -> FE : User clicks logout
+FE -> BE : HTTPS POST /api/logout\n{ refreshToken }
+BE -> DB : DELETE FROM refresh_tokens\nWHERE token = ?
+DB --> BE : Acknowledge deletion
+BE --> FE : 200 OK
+FE -> FE : Remove tokens from localStorage\n(accessToken, refreshToken)
+FE --> User : Redirect to login page
+
+@enduml

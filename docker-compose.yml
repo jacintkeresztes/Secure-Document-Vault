@@ -35,6 +35,9 @@ services:
     volumes:
       - ./certs:/etc/ssl/certs:ro
       - upload-data:/app/uploads
+      - ./certs/ca-cert.pem:/app/certs/ca-cert.pem:ro
+      - ./certs/client-cert.pem:/app/certs/client-cert.pem:ro
+      - ./certs/client-key.pem:/app/certs/client-key.pem:ro
     environment:
       # Database Configuration
       - DB_HOST=mysql
@@ -75,6 +78,11 @@ services:
     volumes:
       - mysql-data:/var/lib/mysql
       - ./backend/db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./backend/db/integrity.sha256:/docker-entrypoint-initdb.d/integrity.sha256:ro
+      - ./backend/db/verify-integrity.sh:/docker-entrypoint-initdb.d/00-verify-integrity.sh:ro
+      - ./certs/ca-cert.pem:/etc/mysql/certs/ca-cert.pem:ro
+      - ./certs/server-cert.pem:/etc/mysql/certs/server-cert.pem:ro
+      - ./certs/server-key.pem:/etc/mysql/certs/server-key.pem:ro
     environment:
       - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD}
       - MYSQL_DATABASE=vault_db
@@ -91,12 +99,16 @@ services:
       --default-authentication-plugin=mysql_native_password
       --character-set-server=utf8mb4
       --collation-server=utf8mb4_unicode_ci
-      --require_secure_transport=OFF
+      --require_secure_transport=ON
+      --ssl-ca=/etc/mysql/certs/ca-cert.pem
+      --ssl-cert=/etc/mysql/certs/server-cert.pem
+      --ssl-key=/etc/mysql/certs/server-key.pem
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD}"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD}", "--ssl-mode=REQUIRED"]
       interval: 10s
-      timeout: 5s
-      retries: 5
+      timeout: 10s
+      retries: 10
+      start_period: 30s
 
   # Optional: Adminer for database management (remove in production)
   adminer:

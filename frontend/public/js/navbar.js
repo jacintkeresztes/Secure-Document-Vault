@@ -1,6 +1,6 @@
 // Update navbar based on login status
 function updateNavbar() {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('accessToken');
     const navbar = document.querySelector('.navbar-nav');
 
     if (!navbar) {

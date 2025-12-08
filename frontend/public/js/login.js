@@ -15,7 +15,7 @@ loginForm.addEventListener('submit', async (e) => {
     if (feedback) feedback.innerHTML = '';
 
     try {
-        const response = await fetch('http://localhost:3000/api/login', {
+        const response = await fetch('https://localhost:3000/api/login', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -33,7 +33,9 @@ loginForm.addEventListener('submit', async (e) => {
                 </div>
             `;
 
-            if (data.token) localStorage.setItem('token', data.token)
+            // Store both access and refresh tokens
+            if (data.accessToken) localStorage.setItem('accessToken', data.accessToken)
+            if (data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken)
 
             setTimeout(() => {
                 window.location.href = '/';

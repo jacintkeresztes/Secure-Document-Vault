@@ -1,0 +1,62 @@
+@startuml architecture
+title Secure File Vault - System Architecture
+
+skinparam componentStyle rectangle
+
+' Zones
+rectangle "Public Zone" #DDDDFF {
+  actor User as user
+
+  component "Frontend Container\nNGINX Alpine\n(HTTPS 443, HTTP 80)" as frontend
+}
+
+rectangle "Private Zone\nDocker Bridge Network (172.20.0.0/16)" #DDFFDD {
+  component "Backend Container\nNode.js 20 Alpine\n(HTTPS 3000)" as backend
+  database "Database Container\nMySQL 8.0\n(TLS 3306)" as db
+}
+
+' Relationships
+user --> frontend : HTTPS (TLS 1.2/1.3)\nPort 443\nWeb UI + API Proxy
+frontend --> backend : HTTPS (TLS 1.2/1.3)\nPort 3000\nREST API /api/*
+backend --> db : TLS encrypted MySQL\nPort 3306\nClient certificate auth
+
+' Notes on components
+note right of frontend
+**Deployment**: Docker container (nginx:alpine)
+**Ports**: 443 (HTTPS), 80 (HTTP redirect)
+**TLS**: X.509 certificate (RSA-2048)
+**Functions**:
+- Serves static HTML/JS files
+- Reverse proxy to Backend API
+**Integrity**: SHA-256 checksums verified at startup
+end note
+
+note right of backend
+**Deployment**: Docker container (node:20-alpine)
+**Port**: 3000 (HTTPS only)
+**TLS**: X.509 certificate (RSA-2048)
+**REST Endpoints**:
+- /api/register, /api/login
+- /api/refresh, /api/logout
+- /api/upload, /api/files
+- /api/files/:id (GET/DELETE)
+**Authentication**: JWT (HS512)
+**Integrity**: SHA-256 checksums verified at startup
+end note
+
+note right of db
+**Deployment**: Docker container (mysql:8.0)
+**Port**: 3306 (TLS required)
+**TLS**: X.509 CA + server + client certs
+**Auth**: Client certificate + password
+**Tables**:
+- users: id, email, password_hash, created_at
+- files: id, user_id, filepath, iv, auth_tag,
+  encrypted_dek, dek_iv, dek_auth_tag,
+  file_hash, created_at
+- refresh_tokens: id, user_id, token,
+  expires_at, created_at
+**Integrity**: SHA-256 of init.sql verified at startup
+end note
+
+@enduml

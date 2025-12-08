@@ -50,9 +50,9 @@ function handleFile(file) {
 }
 
 async function uploadFile(file, fileDiv) {
-    const token = localStorage.getItem('token');
+    const accessToken = localStorage.getItem('accessToken');
 
-    if (!token) {
+    if (!accessToken) {
         fileDiv.className = 'alert alert-danger';
         fileDiv.innerHTML = '<strong>✗ Error:</strong> Please login first';
         setTimeout(() => {
@@ -69,11 +69,8 @@ async function uploadFile(file, fileDiv) {
     fileDiv.innerHTML = `<strong>⏳ Uploading:</strong> ${file.name}...`;
 
     try {
-        const response = await fetch('http://localhost:3000/api/upload', {
+        const response = await authFetch('https://localhost:3000/api/upload', {
             method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`
-            },
             body: formData
         });
 

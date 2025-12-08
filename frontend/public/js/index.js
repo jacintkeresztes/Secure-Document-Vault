@@ -1,5 +1,5 @@
 function updateNavbar() {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('accessToken');
     const isLoggedIn = !!token;
 
     const navbar = document.querySelector('.navbar-nav');
@@ -29,16 +29,12 @@ function updateNavbar() {
 }
 
 async function loadFiles() {
-    const token = localStorage.getItem('token');
     const tbody = document.querySelector('#user-view tbody');
     tbody.innerHTML = '<tr><td colspan="4" class="text-center">Loading...</td></tr>';
 
     try {
-        const response = await fetch('http://localhost:3000/api/files', {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
+        const response = await authFetch('https://localhost:3000/api/files', {
+            method: 'GET'
         });
 
         const data = await response.json();
@@ -74,13 +70,9 @@ async function loadFiles() {
 
 // Download file
 async function downloadFile(fileId, fileName) {
-    const token = localStorage.getItem('token');
     try {
-        const response = await fetch(`http://localhost:3000/api/files/${fileId}`, {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
+        const response = await authFetch(`https://localhost:3000/api/files/${fileId}`, {
+            method: 'GET'
         });
 
         if (response.ok) {
@@ -108,13 +100,9 @@ async function deleteFile(fileId) {
         return;
     }
 
-    const token = localStorage.getItem('token');
     try {
-        const response = await fetch(`http://localhost:3000/api/files/${fileId}`, {
-            method: 'DELETE',
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
+        const response = await authFetch(`https://localhost:3000/api/files/${fileId}`, {
+            method: 'DELETE'
         });
 
         const data = await response.json();

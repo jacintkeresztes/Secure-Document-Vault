@@ -3,6 +3,7 @@ import { type Request, type Response } from 'express'
 import crypto from 'crypto'
 import fs from 'fs/promises'
 import { deleteFile } from '../utils/fileUtils.js'
+import { encryptFile, decryptFile } from '../utils/crypto.js'
 
 export async function handleFileUpload(req: Request, res: Response) {
     try {
@@ -51,8 +52,42 @@ export async function handleFileUpload(req: Request, res: Response) {
             });
         }
         
+       // Encryption
+        let encryptedFile: Buffer, iv: Buffer,authTag: Buffer, encryptedDek: Buffer, dekIv: Buffer, dekAuthTag: Buffer
+
         try {
-            await fs.rename(req.file.path, filePath)
+            const [userRows] = await pool.execute(
+                'SELECT password_hash FROM users WHERE id = ?',
+                [userId]
+            )
+            const users = userRows as any[]
+            if (users.length === 0)  {
+                return res.status(500).json({
+                    success: false,
+                    message: 'Failed to retrieve user data'
+                })
+            }
+
+            const passwordHash: string = users[0].password_hash;
+            ({
+                encryptedFile,
+                iv,
+                authTag,
+                encryptedDek,
+                dekIv,
+                dekAuthTag
+            } = encryptFile(fileBuffer, passwordHash))
+        } catch (error) {
+            console.error(error)
+            return res.status(500).json({
+                success: false,
+                message: 'Failed to encrypt file'
+            })
+        }
+
+        try {
+            await fs.writeFile(filePath, encryptedFile)
+            await deleteFile(req.file.path)
         } catch (error) {
             console.error(error)
             await deleteFile(req.file.path)
@@ -61,12 +96,12 @@ export async function handleFileUpload(req: Request, res: Response) {
                 message: 'File write unsuccesful'
             })
         }
-
+        
         let result: any
         try {
             [result] = await pool.execute(
                 'INSERT INTO files (user_id, filename, filepath, file_size, iv, auth_tag, encrypted_dek, dek_iv, dek_auth_tag, file_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                [userId, originalName, filePath, fileSize, Buffer.alloc(12), Buffer.alloc(16), Buffer.alloc(32), Buffer.alloc(12), Buffer.alloc(16), hash]           
+                [userId, originalName, filePath, fileSize, iv, authTag, encryptedDek, dekIv, dekAuthTag, hash]      
             )
         } catch (error) {
             console.error(error)
@@ -131,8 +166,10 @@ export async function handleFileDownload(req: Request, res: Response) {
     }
 
     const file = files[0]
+    let fileBuffer: Buffer
     try {
         await fs.access(file.filepath)
+        fileBuffer = await fs.readFile(file.filepath)
     } catch (error) {
         console.error(error)
         return res.status(404).json({
@@ -141,7 +178,38 @@ export async function handleFileDownload(req: Request, res: Response) {
         })
     }
 
-    res.download(file.filepath, file.filename)
+    // Decryption
+    let decryptedFile: Buffer
+    try {
+
+        const [userRows] = await pool.execute(
+            'SELECT password_hash FROM users WHERE id = ?',
+            [userId]
+        )
+
+        const users = userRows as any[]
+        if (users.length === 0)  {
+            return res.status(500).json({
+                success: false,
+                message: 'Failed to retrieve user data'
+            })
+        }
+
+        const passwordHash: string = users[0].password_hash;
+        
+
+        decryptedFile = decryptFile(fileBuffer, passwordHash, file.iv, file.auth_tag, file.encrypted_dek, file.dek_iv, file.dek_auth_tag)
+    } catch (error) {
+        console.error(error)
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to decrypt file'
+        })
+    }
+    res.setHeader('Content-Disposition', `attachment; filename="${file.filename}"`)
+    res.setHeader('Content-type', 'application/octet-stream')
+    res.setHeader('Content-length', decryptedFile.length.toString())
+    res.send(decryptedFile)
 }
 
 export async function handleDeleteFile(req: Request, res: Response) {

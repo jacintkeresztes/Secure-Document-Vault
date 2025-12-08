@@ -1,8 +1,9 @@
 import express from "express"
 import cors from 'cors'
 import multer from 'multer'
+import https from 'https'
 import { testConnection } from "./db/connections.js"
-import { handleRegister, handleLogin } from './handlers/authHandlers.js'
+import { handleRegister, handleLogin, handleRefresh, handleLogout } from './handlers/authHandlers.js'
 import { handleListFiles, handleFileDownload, handleDeleteFile, handleFileUpload } from "./handlers/fileHandlers.js"
 import { verifyToken } from "./middleware/authMiddleware.js"
 import { config } from './config.js'
@@ -23,6 +24,12 @@ app.route('/api/login')
 app.route('/api/register')
     .post(handleRegister)
 
+app.route('/api/refresh')
+    .post(handleRefresh)
+
+app.route('/api/logout')
+    .post(handleLogout)
+
 app.route('/api/upload')
     .post(upload.single('file'), verifyToken, handleFileUpload)
 
@@ -34,6 +41,9 @@ app.route('/api/files/:id')
 
     .delete(verifyToken, handleDeleteFile)
 
-app.listen(port, () => {
-    console.log('Server running on port' + port)
+https.createServer({
+    cert: config.tls.cert,
+    key: config.tls.key
+}, app).listen(port, () => {
+    console.log(`HTTPS Server running on port ${port}`)
 })

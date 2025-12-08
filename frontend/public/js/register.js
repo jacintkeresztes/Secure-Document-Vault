@@ -11,7 +11,7 @@ registerForm.addEventListener('submit', async (e) => {
     feedback.innerHTML = '';
 
     try {
-        const response = await fetch('http://localhost:3000/api/register', {
+        const response = await fetch('https://localhost:3000/api/register', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'

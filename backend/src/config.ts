@@ -1,8 +1,16 @@
+import fs from 'fs'
+
 const JWT_SECRET = process.env.JWT_SECRET
 if (!JWT_SECRET) throw new Error('JWT_SECRET not set in .env')
 
 const DB_PASSWORD = process.env.DB_PASSWORD
 if (!DB_PASSWORD) throw new Error('DB_PASSWORD not set in .env')
+
+const TLS_CERT_PATH = process.env.TLS_CERT_PATH
+if (!TLS_CERT_PATH) throw new Error('TLS_CERT_PATH not set in .env')
+
+const TLS_KEY_PATH = process.env.TLS_KEY_PATH
+if (!TLS_KEY_PATH) throw new Error('DB_PASSWORD not set in .env')
 
 export const config = {
     port: parseInt(process.env.PORT || '3000'),
@@ -18,5 +26,10 @@ export const config = {
     jwt: {
         secret: JWT_SECRET,
         expiresIn: '24h' as const
+    },
+
+    tls: {
+        cert: fs.readFileSync(TLS_CERT_PATH),
+        key: fs.readFileSync(TLS_KEY_PATH)
     }
 }

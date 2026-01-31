@@ -8,3 +8,4 @@ certs/
 pdfs/
 FINAL_REPORT*
 */*.sha256*
+*/*puml

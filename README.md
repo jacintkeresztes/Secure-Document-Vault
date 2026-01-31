@@ -26,9 +26,7 @@ Secure file storage system with comprehensive cryptographic controls implementin
 
 ### Prerequisites
 
-Install Docker Desktop for your system:
-- **Windows/Mac**: Download from [docker.com/products/docker-desktop](https://www.docker.com/products/docker-desktop)
-- **Linux**: `sudo apt-get install docker.io docker-compose` (Ubuntu/Debian) or `sudo yum install docker docker-compose` (RHEL/CentOS)
+Install Docker Desktop for your system.
 
 ### Installation
 
@@ -81,26 +79,6 @@ docker-compose up --build -d
 
 ```bash
 docker-compose down
-```
-
-### Troubleshooting
-
-**Port already in use?**
-```bash
-# Check what's using port 443
-sudo lsof -i :443
-# Stop the application using it, or edit docker-compose.yml to use different ports
-```
-
-**Containers won't start?**
-```bash
-# Check logs
-docker-compose logs
-```
-
-**Need to reset everything?**
-```bash
-docker-compose down -v  # Warning: deletes all data
 ```
 
 ## Security

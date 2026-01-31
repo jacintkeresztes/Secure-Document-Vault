@@ -78,8 +78,8 @@ services:
     volumes:
       - mysql-data:/var/lib/mysql
       - ./backend/db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
-      - ./backend/db/integrity.sha256:/docker-entrypoint-initdb.d/integrity.sha256:ro
-      - ./backend/db/verify-integrity.sh:/docker-entrypoint-initdb.d/00-verify-integrity.sh:ro
+      # - ./backend/db/integrity.sha256:/docker-entrypoint-initdb.d/integrity.sha256:ro
+      # - ./backend/db/verify-integrity.sh:/docker-entrypoint-initdb.d/00-verify-integrity.sh:ro
       - ./certs/ca-cert.pem:/etc/mysql/certs/ca-cert.pem:ro
       - ./certs/server-cert.pem:/etc/mysql/certs/server-cert.pem:ro
       - ./certs/server-key.pem:/etc/mysql/certs/server-key.pem:ro

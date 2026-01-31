@@ -6,4 +6,5 @@ uploads/
 certs/
 .vscode
 pdfs/
-FINAL_REPORT.md
+FINAL_REPORT*
+*/*.sha256*
